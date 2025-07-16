@@ -1,12 +1,105 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|c:\\users\\tseposambo\\source\\repos\\resourcebookingsystem\\resourcebookingsystem\\models\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|solutionrelative:resourcebookingsystem\\models\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|c:\\users\\tseposambo\\source\\repos\\resourcebookingsystem\\resourcebookingsystem\\models\\booking.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|solutionrelative:resourcebookingsystem\\models\\booking.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|c:\\users\\tseposambo\\source\\repos\\resourcebookingsystem\\resourcebookingsystem\\controllers\\accountcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|solutionrelative:resourcebookingsystem\\controllers\\accountcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|c:\\users\\tseposambo\\source\\repos\\resourcebookingsystem\\resourcebookingsystem\\controllers\\bookingcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|solutionrelative:resourcebookingsystem\\controllers\\bookingcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|c:\\users\\tseposambo\\source\\repos\\resourcebookingsystem\\resourcebookingsystem\\controllers\\resourcecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{BD90E9E3-EB37-433E-8A2F-4EFC251DD30D}|ResourceBookingSystem\\ResourceBookingSystem.csproj|solutionrelative:resourcebookingsystem\\controllers\\resourcecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "User.cs",
+              "DocumentMoniker": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Models\\User.cs",
+              "RelativeDocumentMoniker": "ResourceBookingSystem\\Models\\User.cs",
+              "ToolTip": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Models\\User.cs",
+              "RelativeToolTip": "ResourceBookingSystem\\Models\\User.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAsAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-16T19:48:02.345Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Booking.cs",
+              "DocumentMoniker": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Models\\Booking.cs",
+              "RelativeDocumentMoniker": "ResourceBookingSystem\\Models\\Booking.cs",
+              "ToolTip": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Models\\Booking.cs",
+              "RelativeToolTip": "ResourceBookingSystem\\Models\\Booking.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-16T19:47:56.682Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "ResourceController.cs",
+              "DocumentMoniker": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Controllers\\ResourceController.cs",
+              "RelativeDocumentMoniker": "ResourceBookingSystem\\Controllers\\ResourceController.cs",
+              "ToolTip": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Controllers\\ResourceController.cs",
+              "RelativeToolTip": "ResourceBookingSystem\\Controllers\\ResourceController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-16T19:46:43.217Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "BookingController.cs",
+              "DocumentMoniker": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Controllers\\BookingController.cs",
+              "RelativeDocumentMoniker": "ResourceBookingSystem\\Controllers\\BookingController.cs",
+              "ToolTip": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Controllers\\BookingController.cs",
+              "RelativeToolTip": "ResourceBookingSystem\\Controllers\\BookingController.cs",
+              "ViewState": "AgIAAAMAAAAAAAAAAAAAAAMAAAAfAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-16T19:46:15.151Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "AccountController.cs",
+              "DocumentMoniker": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Controllers\\AccountController.cs",
+              "RelativeDocumentMoniker": "ResourceBookingSystem\\Controllers\\AccountController.cs",
+              "ToolTip": "C:\\Users\\tseposambo\\source\\repos\\ResourceBookingSystem\\ResourceBookingSystem\\Controllers\\AccountController.cs",
+              "RelativeToolTip": "ResourceBookingSystem\\Controllers\\AccountController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAApAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-07-16T19:45:07.481Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }
