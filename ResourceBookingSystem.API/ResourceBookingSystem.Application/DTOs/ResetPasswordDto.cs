@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 namespace ResourceBookingSystem.Application.DTOs
 {
-    public class RefreshTokenRequestDto
+    public class ResetPasswordDto
     {
-        public string Token { get; set; }
+        public string Email { get; set; } 
+        public string Token { get; set; } 
+        public string NewPassword { get; set; } 
     }
 }

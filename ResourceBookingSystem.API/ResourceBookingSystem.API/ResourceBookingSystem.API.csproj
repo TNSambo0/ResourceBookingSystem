@@ -2,8 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+	<UserSecretsId>ResourceBookingSystem-API-Dev</UserSecretsId>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+	<PreserveCompilationContext>true</PreserveCompilationContext>
   </PropertyGroup>
 
   <ItemGroup>
