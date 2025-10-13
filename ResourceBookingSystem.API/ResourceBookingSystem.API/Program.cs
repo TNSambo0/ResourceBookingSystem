@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using ResourceBookingSystem.Application.EmailTemplates;
 using ResourceBookingSystem.Application.Interfaces;
+using ResourceBookingSystem.Application.Models;
 using ResourceBookingSystem.Application.Repositories;
 using ResourceBookingSystem.Application.Services;
 using ResourceBookingSystem.Domain.Entities;
@@ -22,15 +24,29 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+const string AllowedOrigins = "_allowedOrigins";
 
-// Configure EF Core
+//  Environment Variables / GitHub Secrets
+var connectionString = builder.Configuration["DB_CONNECTION_STRING"]
+                     ?? builder.Configuration.GetConnectionString("DefaultConnection")
+                     ?? Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+                     ?? throw new InvalidOperationException("Database connection string not found.");
+
+var jwtKey = builder.Configuration["JWT_SECRET"]
+              ?? builder.Configuration["Jwt:Key"]
+              ?? Environment.GetEnvironmentVariable("JWT_SECRET")
+              ?? throw new InvalidOperationException("JWT key not configured.");
+
+var sendGridApiKey = builder.Configuration["SENDGRID_API_KEY"]
+                     ?? builder.Configuration["EmailOptions:SendGridApiKey"]
+                     ?? Environment.GetEnvironmentVariable("SENDGRID_API_KEY")
+                     ?? throw new InvalidOperationException("SendGrid API key not configured.");
+
+
+// EF Core + Identity
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = false;
@@ -40,8 +56,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure JWT Authentication
-var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "dev-secret-key-change-me");
+// JWT Authentication
+var key = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -54,7 +70,7 @@ builder.Services.AddAuthentication(options =>
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false, // Set to true and configure in prod
+        ValidateIssuer = false,
         ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
@@ -63,13 +79,31 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddControllers();
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: AllowedOrigins, policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173") // Frontend dev origin
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Controllers & Swagger
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "ResourceBookingSystem API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ResourceBookingSystem API",
+        Version = "v1",
+        Description = "API documentation for the Resource Booking System"
+    });
 
     var securityScheme = new OpenApiSecurityScheme
     {
@@ -80,6 +114,7 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Description = "JWT Authorization header using the Bearer scheme."
     };
+
     c.AddSecurityDefinition("Bearer", securityScheme);
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -87,20 +122,36 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Register Services
+// Application Services
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+
+// Email configuration
+builder.Services.Configure<EmailOptions>(options =>
+{
+    options.SendGridApiKey = sendGridApiKey;
+    options.FromEmail = builder.Configuration["EmailOptions:FromEmail"] ?? "alittlesourceofhope@gmail.com";
+    options.FromName = builder.Configuration["EmailOptions:FromName"] ?? "Resource Booking System";
+});
+
+builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+builder.Services.AddSingleton<IEmailTemplateRenderer, RazorEmailTemplateRenderer>();
+
+// Background email processing
+builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+builder.Services.AddHostedService<EmailBackgroundService>();
+
 builder.Services.AddHttpContextAccessor();
 
+// Build & Run App
 var app = builder.Build();
 
-// Middleware
+app.UseCors(AllowedOrigins);
 app.UseSerilogRequestLogging();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -111,14 +162,13 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Seed roles
+// Seed roles and initial data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     await SeedData.SeedAsync(services);
 }
 
-// Map controllers
 app.MapControllers();
 app.MapGet("/", () => Results.Ok("ResourceBookingSystem API is running."));
 

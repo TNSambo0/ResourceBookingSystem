@@ -49,7 +49,10 @@ namespace ResourceBookingSystem.Application.Services
                 claims.Add(new Claim(ClaimTypes.Role, role));
 
             var jwtSettings = _configuration.GetSection("Jwt");
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]));
+            var jwtSecret = _configuration.GetValue<string>("JWT_SECRET")
+                ?? throw new InvalidOperationException("JWT_SECRET not configured.");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var expires = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["ExpiresMinutes"]));
 

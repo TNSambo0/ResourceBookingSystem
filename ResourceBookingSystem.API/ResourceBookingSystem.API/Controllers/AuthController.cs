@@ -1,40 +1,94 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ResourceBookingSystem.Application.DTOs;
+using ResourceBookingSystem.Application.EmailTemplates;
 using ResourceBookingSystem.Application.Interfaces;
+using ResourceBookingSystem.Application.Models;
+using ResourceBookingSystem.Application.Services;
 using ResourceBookingSystem.Domain.Entities;
 using ResourceBookingSystem.Infrastructure.Data;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 
 namespace ResourceBookingSystem.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController : ControllerBase
+    public class AuthController(
+        UserManager<ApplicationUser> userManager,
+        AppDbContext context,
+        ITokenService tokenService,
+        IEmailTemplateRenderer templateRenderer,
+        ILogger<AuthController> logger) : ControllerBase
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly IConfiguration _configuration;
-        private readonly AppDbContext _context;
-        private readonly ITokenService _tokenService;
+        private readonly UserManager<ApplicationUser> _userManager = userManager;
+        private readonly AppDbContext _context = context;
+        private readonly ITokenService _tokenService = tokenService;
+        private readonly IEmailTemplateRenderer _templateRenderer = templateRenderer;
+        private readonly ILogger<AuthController> _logger = logger;
 
-        public AuthController(
-            UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager,
-            IConfiguration configuration,
-            AppDbContext context,
-            ITokenService tokenService)
+        // Forgot Password
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(
+            [FromBody] ForgotPasswordDto request,
+            [FromServices] IBackgroundTaskQueue taskQueue,
+            [FromServices] IServiceProvider serviceProvider)
         {
-            _userManager = userManager;
-            _roleManager = roleManager;
-            _configuration = configuration;
-            _context = context;
-            _tokenService = tokenService;
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+                return Ok(new { message = "If the email exists, a reset link has been sent." });
+
+            var code = await _userManager.GeneratePasswordResetTokenAsync(user);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            var callbackUrl = $"{Request.Scheme}://{Request.Host}/reset-password?code={code}&email={Uri.EscapeDataString(request.Email)}";
+
+            var emailModel = new EmailTemplate
+            {
+                Title = "Reset Your Password",
+                Greeting = $"Hello {user.UserName},",
+                BodyContent = "Click below to reset your password.",
+                ActionText = "Reset Password",
+                ActionUrl = callbackUrl
+            };
+
+            var htmlMessage = await _templateRenderer.RenderTemplateAsync("BaseTemplate", emailModel);
+
+            await taskQueue.QueueBackgroundWorkItemAsync(async token =>
+            {
+                using var scope = serviceProvider.CreateScope();
+                var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+                await emailService.SendEmailAsync(request.Email, "Reset Password", htmlMessage);
+            });
+
+            return Ok(new { message = "Password reset link queued for sending." });
         }
 
+        // Reset Password
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token))
+                return BadRequest(new { message = "Invalid reset request." });
+
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+                return BadRequest(new { message = "Invalid user." });
+
+            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
+
+            if (result.Succeeded)
+                return Ok(new { message = "Password has been reset successfully." });
+
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+        }
+
+        // Register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
@@ -54,6 +108,7 @@ namespace ResourceBookingSystem.API.Controllers
             return Ok(new { message = "User registered successfully" });
         }
 
+        // Login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
@@ -82,11 +137,12 @@ namespace ResourceBookingSystem.API.Controllers
             {
                 token = jwtToken,
                 expires,
-                refreshToken = refreshToken.Token
+                refreshToken = refreshToken.Token,
+                userData = user
             });
         }
 
-        // 👇 Match frontend route `/auth/refresh`
+        // Refresh Token
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
         {
@@ -103,12 +159,11 @@ namespace ResourceBookingSystem.API.Controllers
             if (user == null)
                 return Unauthorized("User not found");
 
-            // Revoke the old refresh token
+            // Revoke old token
             storedToken.IsRevoked = true;
 
             // Generate new tokens
             var (newJwt, expires, jwtId) = await _tokenService.GenerateAccessTokenAsync(user);
-
             var newRefreshToken = new RefreshToken
             {
                 JwtId = jwtId,
@@ -124,17 +179,19 @@ namespace ResourceBookingSystem.API.Controllers
 
             return Ok(new
             {
+                user,
                 token = newJwt,
                 expires,
                 refreshToken = newRefreshToken.Token
             });
         }
 
+        // Logout
         [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] RefreshTokenRequestDto dto)
         {
-            var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null) return Unauthorized();
 
             var token = await _context.RefreshTokens
@@ -150,25 +207,6 @@ namespace ResourceBookingSystem.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Logged out from current session" });
-        }
-
-        [Authorize]
-        [HttpPost("logout-all")]
-        public async Task<IActionResult> LogoutAll()
-        {
-            var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            if (userId == null) return Unauthorized();
-
-            var tokens = await _context.RefreshTokens
-                .Where(rt => rt.UserId == userId && !rt.IsRevoked)
-                .ToListAsync();
-
-            foreach (var rt in tokens)
-                rt.IsRevoked = true;
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Logged out from all sessions" });
         }
     }
 }
