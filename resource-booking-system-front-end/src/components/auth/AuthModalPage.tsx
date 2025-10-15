@@ -15,7 +15,7 @@ type AuthModalProps = {
 
 type ViewMode = 'login' | 'register' | 'forgot';
 
-const AuthModal: React.FC<AuthModalProps> = ({ show, mode = 'login', onClose, onLoginSuccess }) => {
+const AuthModalPage: React.FC<AuthModalProps> = ({ show, mode = 'login', onClose, onLoginSuccess }) => {
     const dispatch = useAppDispatch();
     const { showToast } = useToast();
     const { loading } = useAppSelector((state) => state.auth);
@@ -44,17 +44,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ show, mode = 'login', onClose, on
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const resultAction = await dispatch(login({ email, password }));
-            if (login.fulfilled.match(resultAction)) {
-                showToast('Login successful!', 'success');
-                resetFields();
-                onLoginSuccess();
-            } else {
-                const errorMessage = getErrorMessage(resultAction.payload) || 'Invalid email or password';
-                showToast(errorMessage, 'danger');
-            }
-        } catch {
-            showToast('An unexpected error occurred.', 'danger');
+            const userData = await dispatch(login({ email, password })).unwrap();
+
+            showToast('Login successful!', 'success');
+            resetFields();
+            onLoginSuccess();
+
+        } catch (err: any) {
+            const errorMessage = err?.message || 'Invalid email or password';
+            showToast(errorMessage, 'danger');
         }
     };
 
@@ -319,4 +317,4 @@ const AuthModal: React.FC<AuthModalProps> = ({ show, mode = 'login', onClose, on
     );
 };
 
-export default AuthModal;
+export default AuthModalPage;
