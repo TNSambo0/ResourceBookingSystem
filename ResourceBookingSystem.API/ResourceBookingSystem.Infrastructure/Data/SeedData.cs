@@ -27,7 +27,7 @@ namespace ResourceBookingSystem.Infrastructure.Data
             var usersToSeed = new List<(string FullName, string Email, string Password, string Role)>
             {
                 ("System Admin", "admin@local.co.za", "Admin@12345", "Admin"),
-                ("Tsepo Sambo", "tseposambo1@gmail.com", "Admin@12345", "Admin"),
+                ("Tsepo Sambo", "christy4a.m@gmail.com", "Admin@12345", "Admin"),
                 ("HR Manager", "manager@local.co.za", "Manager@12345", "Manager"),
                 ("John Employee", "employee@local.co.za", "Employee@12345", "Employee"),
                 ("Jane Customer", "customer@local.co.za", "Customer@12345", "Customer"),

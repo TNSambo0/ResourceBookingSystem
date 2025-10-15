@@ -1,12 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using ResourceBookingSystem.Application.DTOs;
-using ResourceBookingSystem.Application.EmailTemplates;
 using ResourceBookingSystem.Application.Interfaces;
 using ResourceBookingSystem.Application.Models;
 using ResourceBookingSystem.Application.Services;
@@ -19,194 +16,289 @@ namespace ResourceBookingSystem.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController(
-        UserManager<ApplicationUser> userManager,
-        AppDbContext context,
-        ITokenService tokenService,
-        IEmailTemplateRenderer templateRenderer,
-        ILogger<AuthController> logger) : ControllerBase
+    public class AuthController(UserManager<ApplicationUser> userManager,
+    AppDbContext context,
+    ITokenService tokenService,
+    ILogger<AuthController> logger,
+    IEmailService emailService,
+    IConfiguration builder) : ControllerBase
     {
-        private readonly UserManager<ApplicationUser> _userManager = userManager;
-        private readonly AppDbContext _context = context;
-        private readonly ITokenService _tokenService = tokenService;
-        private readonly IEmailTemplateRenderer _templateRenderer = templateRenderer;
-        private readonly ILogger<AuthController> _logger = logger;
 
-        // Forgot Password
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword(
-            [FromBody] ForgotPasswordDto request,
-            [FromServices] IBackgroundTaskQueue taskQueue,
-            [FromServices] IServiceProvider serviceProvider)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto request)
         {
-            var user = await _userManager.FindByEmailAsync(request.Email);
-            if (user == null)
-                return Ok(new { message = "If the email exists, a reset link has been sent." });
+            logger.LogInformation("Password reset requested for {Email}", request.Email);
 
-            var code = await _userManager.GeneratePasswordResetTokenAsync(user);
-            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-            var callbackUrl = $"{Request.Scheme}://{Request.Host}/reset-password?code={code}&email={Uri.EscapeDataString(request.Email)}";
-
-            var emailModel = new EmailTemplate
+            try
             {
-                Title = "Reset Your Password",
-                Greeting = $"Hello {user.UserName},",
-                BodyContent = "Click below to reset your password.",
-                ActionText = "Reset Password",
-                ActionUrl = callbackUrl
-            };
+                var user = await userManager.FindByEmailAsync(request.Email);
+                if (user == null)
+                {
+                    logger.LogWarning("Password reset requested for non-existent email: {Email}", request.Email);
+                    return Ok(new { message = "If the email exists, a reset link has been sent." });
+                }
 
-            var htmlMessage = await _templateRenderer.RenderTemplateAsync("BaseTemplate", emailModel);
+                var code = await userManager.GeneratePasswordResetTokenAsync(user);
+                code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
-            await taskQueue.QueueBackgroundWorkItemAsync(async token =>
+                var frontendUrl = builder.GetValue<string>("FrontendUrl") ?? "http://localhost:5173";
+                var callbackUrl = $"{frontendUrl}/reset-password?code={code}&email={Uri.EscapeDataString(request.Email)}";
+
+                var emailModel = new EmailTemplate
+                {
+                    Title = "Reset Your Password",
+                    Greeting = $"Hello {user.FullName},",
+                    BodyContent = "Click below to reset your password.",
+                    ActionText = "Reset Password",
+                    ActionUrl = callbackUrl
+                };
+
+                emailService.QueueJob(user, emailModel);
+                logger.LogInformation("Password reset email queued successfully for {Email}", request.Email);
+
+                return Ok(new { message = "Password reset link queued for sending." });
+            }
+            catch (Exception ex)
             {
-                using var scope = serviceProvider.CreateScope();
-                var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
-                await emailService.SendEmailAsync(request.Email, "Reset Password", htmlMessage);
-            });
-
-            return Ok(new { message = "Password reset link queued for sending." });
+                logger.LogError(ex, "Error while processing password reset request for {Email}", request.Email);
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
         }
 
-        // Reset Password
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto request)
         {
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token))
-                return BadRequest(new { message = "Invalid reset request." });
+            logger.LogInformation("Password reset attempt for {Email}", request.Email);
 
-            var user = await _userManager.FindByEmailAsync(request.Email);
-            if (user == null)
-                return BadRequest(new { message = "Invalid user." });
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token))
+                {
+                    logger.LogWarning("Invalid password reset request received (missing email or token)");
+                    return BadRequest(new { message = "Invalid reset request." });
+                }
 
-            var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
-            var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
+                var user = await userManager.FindByEmailAsync(request.Email);
+                if (user == null)
+                {
+                    logger.LogWarning("Password reset failed — user not found for email {Email}", request.Email);
+                    return BadRequest(new { message = "Invalid user." });
+                }
 
-            if (result.Succeeded)
-                return Ok(new { message = "Password has been reset successfully." });
+                var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
+                var result = await userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
 
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+                if (result.Succeeded)
+                {
+                    logger.LogInformation("Password reset successful for {Email}", request.Email);
+                    return Ok(new { message = "Password has been reset successfully." });
+                }
+
+                logger.LogWarning("Password reset failed for {Email}: {Errors}",
+                    request.Email, string.Join(", ", result.Errors.Select(e => e.Description)));
+
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+            }
+            catch (FormatException fe)
+            {
+                logger.LogError(fe, "Token decoding failed for {Email}", request.Email);
+                return BadRequest(new { message = "Invalid token format." });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error while resetting password for {Email}", request.Email);
+                return StatusCode(500, new { message = "An error occurred while resetting password." });
+            }
         }
 
-        // Register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            var user = new ApplicationUser
+            logger.LogInformation("Registration attempt for {Email}", dto.Email);
+
+            try
             {
-                UserName = dto.Email,
-                Email = dto.Email,
-                FullName = dto.FullName
-            };
+                var user = new ApplicationUser
+                {
+                    UserName = dto.Email,
+                    Email = dto.Email,
+                    FullName = dto.FullName
+                };
 
-            var result = await _userManager.CreateAsync(user, dto.Password);
-            if (!result.Succeeded)
-                return BadRequest(result.Errors);
+                var result = await userManager.CreateAsync(user, dto.Password);
+                if (!result.Succeeded)
+                {
+                    logger.LogWarning("Registration failed for {Email}: {Errors}",
+                        dto.Email, string.Join(", ", result.Errors.Select(e => e.Description)));
+                    return BadRequest(result.Errors);
+                }
 
-            await _userManager.AddToRoleAsync(user, "Employee");
+                await userManager.AddToRoleAsync(user, "Employee");
+                logger.LogInformation("User {Email} registered successfully", dto.Email);
 
-            return Ok(new { message = "User registered successfully" });
+                return Ok(new { message = "User registered successfully" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred during registration for {Email}", dto.Email);
+                return StatusCode(500, new { message = "An error occurred while registering user." });
+            }
         }
 
-        // Login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var user = await _userManager.FindByEmailAsync(dto.Email);
-            if (user == null) return Unauthorized("Invalid email or password");
+            logger.LogInformation("Login attempt for {Email}", dto.Email);
 
-            var valid = await _userManager.CheckPasswordAsync(user, dto.Password);
-            if (!valid) return Unauthorized("Invalid email or password");
-
-            var (jwtToken, expires, jwtId) = await _tokenService.GenerateAccessTokenAsync(user);
-
-            var refreshToken = new RefreshToken
+            try
             {
-                JwtId = jwtId,
-                Token = _tokenService.GenerateRefreshToken(),
-                UserId = user.Id,
-                AddedDate = DateTime.UtcNow,
-                ExpiryDate = DateTime.UtcNow.AddDays(7),
-                IsRevoked = false
-            };
+                var user = await userManager.FindByEmailAsync(dto.Email);
+                if (user == null)
+                {
+                    logger.LogWarning("Login failed — user not found for {Email}", dto.Email);
+                    return Unauthorized("Invalid email or password");
+                }
 
-            _context.RefreshTokens.Add(refreshToken);
-            await _context.SaveChangesAsync();
+                var valid = await userManager.CheckPasswordAsync(user, dto.Password);
+                if (!valid)
+                {
+                    logger.LogWarning("Login failed — invalid password for {Email}", dto.Email);
+                    return Unauthorized("Invalid email or password");
+                }
 
-            return Ok(new
+                var (jwtToken, expires, jwtId) = await tokenService.GenerateAccessTokenAsync(user);
+
+                var refreshToken = new RefreshToken
+                {
+                    JwtId = jwtId,
+                    Token = tokenService.GenerateRefreshToken(),
+                    UserId = user.Id,
+                    AddedDate = DateTime.UtcNow,
+                    ExpiryDate = DateTime.UtcNow.AddDays(7),
+                    IsRevoked = false
+                };
+
+                context.RefreshTokens.Add(refreshToken);
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("User {Email} logged in successfully", dto.Email);
+
+                return Ok(new
+                {
+                    token = jwtToken,
+                    expires,
+                    refreshToken = refreshToken.Token,
+                    userData = user
+                });
+            }
+            catch (Exception ex)
             {
-                token = jwtToken,
-                expires,
-                refreshToken = refreshToken.Token,
-                userData = user
-            });
+                logger.LogError(ex, "Error occurred during login for {Email}", dto.Email);
+                return StatusCode(500, new { message = "An error occurred while logging in." });
+            }
         }
 
-        // Refresh Token
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Token))
-                return BadRequest("Refresh token is required");
+            logger.LogInformation("Refresh token request received");
 
-            var storedToken = await _context.RefreshTokens
-                .FirstOrDefaultAsync(rt => rt.Token == dto.Token);
-
-            if (storedToken == null || storedToken.IsRevoked || storedToken.ExpiryDate < DateTime.UtcNow)
-                return Unauthorized("Invalid or expired refresh token");
-
-            var user = await _userManager.FindByIdAsync(storedToken.UserId);
-            if (user == null)
-                return Unauthorized("User not found");
-
-            // Revoke old token
-            storedToken.IsRevoked = true;
-
-            // Generate new tokens
-            var (newJwt, expires, jwtId) = await _tokenService.GenerateAccessTokenAsync(user);
-            var newRefreshToken = new RefreshToken
+            try
             {
-                JwtId = jwtId,
-                Token = _tokenService.GenerateRefreshToken(),
-                UserId = user.Id,
-                AddedDate = DateTime.UtcNow,
-                ExpiryDate = DateTime.UtcNow.AddDays(7),
-                IsRevoked = false
-            };
+                if (string.IsNullOrWhiteSpace(dto.Token))
+                {
+                    logger.LogWarning("Refresh token missing in request");
+                    return BadRequest("Refresh token is required");
+                }
 
-            _context.RefreshTokens.Add(newRefreshToken);
-            await _context.SaveChangesAsync();
+                var storedToken = await context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == dto.Token);
 
-            return Ok(new
+                if (storedToken == null || storedToken.IsRevoked || storedToken.ExpiryDate < DateTime.UtcNow)
+                {
+                    logger.LogWarning("Invalid or expired refresh token");
+                    return Unauthorized("Invalid or expired refresh token");
+                }
+
+                var user = await userManager.FindByIdAsync(storedToken.UserId);
+                if (user == null)
+                {
+                    logger.LogWarning("User not found for refresh token");
+                    return Unauthorized("User not found");
+                }
+
+                storedToken.IsRevoked = true;
+
+                var (newJwt, expires, jwtId) = await tokenService.GenerateAccessTokenAsync(user);
+                var newRefreshToken = new RefreshToken
+                {
+                    JwtId = jwtId,
+                    Token = tokenService.GenerateRefreshToken(),
+                    UserId = user.Id,
+                    AddedDate = DateTime.UtcNow,
+                    ExpiryDate = DateTime.UtcNow.AddDays(7),
+                    IsRevoked = false
+                };
+
+                context.RefreshTokens.Add(newRefreshToken);
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("Tokens refreshed for {Email}", user.Email);
+
+                return Ok(new
+                {
+                    user,
+                    token = newJwt,
+                    expires,
+                    refreshToken = newRefreshToken.Token
+                });
+            }
+            catch (Exception ex)
             {
-                user,
-                token = newJwt,
-                expires,
-                refreshToken = newRefreshToken.Token
-            });
+                logger.LogError(ex, "Error occurred during token refresh");
+                return StatusCode(500, new { message = "An error occurred while refreshing token." });
+            }
         }
 
-        // Logout
         [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout([FromBody] RefreshTokenRequestDto dto)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null) return Unauthorized();
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (userId == null)
+                {
+                    logger.LogWarning("Logout attempt without valid user claim");
+                    return Unauthorized();
+                }
 
-            var token = await _context.RefreshTokens
-                .FirstOrDefaultAsync(rt => rt.Token == dto.Token && rt.UserId == userId);
+                var token = await context.RefreshTokens
+                    .FirstOrDefaultAsync(rt => rt.Token == dto.Token && rt.UserId == userId);
 
-            if (token == null)
-                return NotFound("Refresh token not found");
+                if (token == null)
+                {
+                    logger.LogWarning("Logout failed — token not found for user {UserId}", userId);
+                    return NotFound("Refresh token not found");
+                }
 
-            if (token.IsRevoked)
-                return BadRequest("Refresh token already revoked");
+                if (token.IsRevoked)
+                {
+                    logger.LogWarning("Logout failed — token already revoked for user {UserId}", userId);
+                    return BadRequest("Refresh token already revoked");
+                }
 
-            token.IsRevoked = true;
-            await _context.SaveChangesAsync();
+                token.IsRevoked = true;
+                await context.SaveChangesAsync();
 
-            return Ok(new { message = "Logged out from current session" });
+                logger.LogInformation("User {UserId} logged out successfully", userId);
+
+                return Ok(new { message = "Logged out from current session" });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error occurred during logout");
+                return StatusCode(500, new { message = "An error occurred while logging out." });
+            }
         }
     }
 }

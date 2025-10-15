@@ -14,17 +14,8 @@ using System.Threading.Tasks;
 
 namespace ResourceBookingSystem.Application.Services
 {
-    public class TokenService : ITokenService
+    public class TokenService(IConfiguration configuration, UserManager<ApplicationUser> userManager) : ITokenService
     {
-        private readonly IConfiguration _configuration;
-        private readonly UserManager<ApplicationUser> _userManager;
-
-        public TokenService(IConfiguration configuration, UserManager<ApplicationUser> userManager)
-        {
-            _configuration = configuration;
-            _userManager = userManager;
-        }
-
         public string GenerateRefreshToken()
         {
             var randomBytes = new byte[64];
@@ -35,7 +26,7 @@ namespace ResourceBookingSystem.Application.Services
 
         public async Task<(string token, DateTime expires, string jwtId)> GenerateAccessTokenAsync(ApplicationUser user)
         {
-            var roles = await _userManager.GetRolesAsync(user);
+            var roles = await userManager.GetRolesAsync(user);
 
             var claims = new List<Claim>
             {
@@ -48,8 +39,8 @@ namespace ResourceBookingSystem.Application.Services
             foreach (var role in roles)
                 claims.Add(new Claim(ClaimTypes.Role, role));
 
-            var jwtSettings = _configuration.GetSection("Jwt");
-            var jwtSecret = _configuration.GetValue<string>("JWT_SECRET")
+            var jwtSettings = configuration.GetSection("Jwt");
+            var jwtSecret = configuration.GetValue<string>("JWT_SECRET")
                 ?? throw new InvalidOperationException("JWT_SECRET not configured.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));

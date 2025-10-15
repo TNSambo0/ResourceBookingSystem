@@ -11,6 +11,8 @@ using ResourceBookingSystem.Application.Services;
 using ResourceBookingSystem.Domain.Entities;
 using ResourceBookingSystem.Infrastructure.Data;
 using Serilog;
+using Hangfire;
+using Hangfire.SqlServer;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,11 +39,6 @@ var jwtKey = builder.Configuration["JWT_SECRET"]
               ?? Environment.GetEnvironmentVariable("JWT_SECRET")
               ?? throw new InvalidOperationException("JWT key not configured.");
 
-var sendGridApiKey = builder.Configuration["SENDGRID_API_KEY"]
-                     ?? builder.Configuration["EmailOptions:SendGridApiKey"]
-                     ?? Environment.GetEnvironmentVariable("SENDGRID_API_KEY")
-                     ?? throw new InvalidOperationException("SendGrid API key not configured.");
-
 
 // EF Core + Identity
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -55,6 +52,23 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
+
+// Configure Hangfire with your connection string
+builder.Services.AddHangfire(config =>
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+          .UseSimpleAssemblyNameTypeSerializer()
+          .UseRecommendedSerializerSettings()
+          .UseSqlServerStorage(
+              connectionString,
+              new SqlServerStorageOptions
+              {
+                  SchemaName = "HangFire",
+                  PrepareSchemaIfNecessary = true // creates tables automatically
+              })
+);
+
+// Add Hangfire server
+builder.Services.AddHangfireServer();
 
 // JWT Authentication
 var key = Encoding.UTF8.GetBytes(jwtKey);
@@ -128,19 +142,10 @@ builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 
 // Email configuration
-builder.Services.Configure<EmailOptions>(options =>
-{
-    options.SendGridApiKey = sendGridApiKey;
-    options.FromEmail = builder.Configuration["EmailOptions:FromEmail"] ?? "alittlesourceofhope@gmail.com";
-    options.FromName = builder.Configuration["EmailOptions:FromName"] ?? "Resource Booking System";
-});
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("EmailOptions"));
+builder.Services.AddScoped<IEmailTemplateRenderer, RazorEmailTemplateRenderer>();
+builder.Services.AddTransient<IEmailService, SmtpEmailService>();
 
-builder.Services.AddScoped<IEmailService, SendGridEmailService>();
-builder.Services.AddSingleton<IEmailTemplateRenderer, RazorEmailTemplateRenderer>();
-
-// Background email processing
-builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
-builder.Services.AddHostedService<EmailBackgroundService>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -161,6 +166,9 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger";
     });
 }
+
+// Hangfire dashboard (optional but useful)
+app.UseHangfireDashboard("/hangfire");
 
 // Seed roles and initial data
 using (var scope = app.Services.CreateScope())
