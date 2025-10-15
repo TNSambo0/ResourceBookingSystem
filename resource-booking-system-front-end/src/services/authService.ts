@@ -107,3 +107,19 @@ export async function forgotPassword(email: string): Promise<ResponseMessage> {
     const data = await response.json().catch(() => ({}));
     return data.message;
 }
+
+// Forgot password
+export async function resetPassword(email: string, newPassword: string, token: string): Promise<ResponseMessage> {
+    const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, token, newPassword }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Password reset failed');
+    }
+    const data = await response.json().catch(() => ({}));
+    return data.message;
+}

@@ -119,6 +119,22 @@ export const forgotPassword = createAsyncThunk<
     }
 );
 
+// Async thunk for forgotPassword
+export const resetPassword = createAsyncThunk(
+    'auth/reset-password',
+    async (
+        { email, newPassword, token }: { email: string; newPassword: string; token: string },
+        { rejectWithValue }
+    ) => {
+        try {
+            const response = await authService.resetPassword(email, newPassword, token);
+            return response.message;
+        } catch (err: any) {
+            return rejectWithValue(err?.response?.data?.message || err.message || 'Password reset failed');
+        }
+    }
+);
+
 // Async thunk for logging out a user
 export const logoutUser = createAsyncThunk(
     'auth/logout',

@@ -1,6 +1,6 @@
 import { useAppSelector } from '../../hooks/reduxHooks';
 
-const Dashboard: React.FC = () => {
+const DashboardPage: React.FC = () => {
     const user = useAppSelector((state) => state.auth.user);
 
     return (
@@ -11,4 +11,4 @@ const Dashboard: React.FC = () => {
     );
 };
 
-export default Dashboard;
+export default DashboardPage;

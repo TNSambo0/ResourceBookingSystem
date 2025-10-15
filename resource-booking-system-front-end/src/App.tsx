@@ -7,11 +7,12 @@ import { useToast } from './contexts/ToastContext';
 import Navbar from './components/shared/Navbar';
 import Footer from './components/shared/Footer';
 import LandingPage from './components/home/LandingPage';
-import Dashboard from './components/dashboard/Dashboard';
-import AuthModal from './components/auth/AuthModal';
+import DashboardPage from './components/dashboard/DashboardPage';
+import AuthModalPage from './components/auth/AuthModalPage';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import { useInactivityLogout } from './hooks/useInactivityLogout';
 import SessionTimeoutModal from './components/shared/SessionTimeoutModal';
+import ResetPasswordPage from './components/auth/ResetPasswordPage';
 
 function App() {
   const dispatch = useAppDispatch();
@@ -31,9 +32,11 @@ function App() {
     resetTimer,
   } = useInactivityLogout(() => setShowAuthModal(true));
 
-  const handleLogoutSuccess = () => {
-    setShowAuthModal(false);
-  }
+  const handleLogoutSuccess = () => setShowAuthModal(false);
+
+  // Pages where navbar/footer should be hidden
+  const pagesWithoutNavbarPaths = ['/reset-password'];
+  const hideLayout = pagesWithoutNavbarPaths.includes(location.pathname);
 
   useEffect(() => {
     const from = (location.state as { from?: string })?.from;
@@ -47,6 +50,7 @@ function App() {
 
   useEffect(() => {
     const hadSession = !!sessionStorage.getItem('token');
+    const publicPaths = ['/', '/reset-password'];
 
     dispatch(checkSession()).then((result) => {
       if (checkSession.rejected.match(result)) {
@@ -55,7 +59,7 @@ function App() {
           setAuthMode('login');
           setShowAuthModal(true);
         }
-        if (location.pathname !== '/') {
+        if (!publicPaths.includes(location.pathname)) {
           navigate('/', { replace: true });
         }
       }
@@ -78,9 +82,18 @@ function App() {
     }
   };
 
+  const handleResetSuccess = () => setShowAuthModal(true);
+
   return (
     <div className="app-container d-flex flex-column min-vh-100">
-      <Navbar user={user} onLoginClick={() => openLoginModal()} onLogoutSuccess={handleLogoutSuccess} />
+      {/* Only render Navbar if not on reset-password */}
+      {!hideLayout && (
+        <Navbar
+          user={user}
+          onLoginClick={() => openLoginModal()}
+          onLogoutSuccess={handleLogoutSuccess}
+        />
+      )}
 
       <main className="flex-grow-1">
         <Routes>
@@ -89,19 +102,24 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <DashboardPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/reset-password"
+            element={<ResetPasswordPage onResetSuccess={handleResetSuccess} />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      <Footer />
+      {/* Only render Footer if not on reset-password */}
+      {!hideLayout && <Footer />}
 
       {/* Auth Modal */}
       {showAuthModal && (
-        <AuthModal
+        <AuthModalPage
           show
           mode={authMode}
           onClose={() => setShowAuthModal(false)}
@@ -124,3 +142,4 @@ function App() {
 }
 
 export default App;
+
