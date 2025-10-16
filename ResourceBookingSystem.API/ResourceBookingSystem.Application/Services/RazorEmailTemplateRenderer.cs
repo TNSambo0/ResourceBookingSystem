@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using ResourceBookingSystem.Application.Interfaces;
 
-namespace ResourceBookingSystem.Application.EmailTemplates
+namespace ResourceBookingSystem.Application.Services
 {
     public class RazorEmailTemplateRenderer : IEmailTemplateRenderer
     {

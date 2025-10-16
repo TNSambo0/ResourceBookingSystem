@@ -3,7 +3,7 @@ using ResourceBookingSystem.Domain.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace ResourceBookingSystem.Application.Services
+namespace ResourceBookingSystem.Application.Interfaces
 {
     public interface IEmailService
     {

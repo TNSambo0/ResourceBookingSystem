@@ -1,9 +1,11 @@
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using ResourceBookingSystem.Application.EmailTemplates;
+using ResourceBookingSystem.API.Middleware;
 using ResourceBookingSystem.Application.Interfaces;
 using ResourceBookingSystem.Application.Models;
 using ResourceBookingSystem.Application.Repositories;
@@ -11,8 +13,6 @@ using ResourceBookingSystem.Application.Services;
 using ResourceBookingSystem.Domain.Entities;
 using ResourceBookingSystem.Infrastructure.Data;
 using Serilog;
-using Hangfire;
-using Hangfire.SqlServer;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -140,6 +140,8 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<AuditService>();
+
 
 // Email configuration
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("EmailOptions"));
@@ -177,6 +179,7 @@ using (var scope = app.Services.CreateScope())
     await SeedData.SeedAsync(services);
 }
 
+app.UseMiddleware<AuditMiddleware>();
 app.MapControllers();
 app.MapGet("/", () => Results.Ok("ResourceBookingSystem API is running."));
 
