@@ -1,22 +1,10 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../../hooks/reduxHooks';
 
 type HeroSectionProps = {
-    onLoginClick: (redirectPath?: string) => void;
+    onLoginClick: (redirectPath: string) => void;
 };
 
 const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick }) => {
-    const navigate = useNavigate();
-    const { user } = useAppSelector((state) => state.auth);
-
-    const handleProtectedNavigation = (path: string) => {
-        if (user) {
-            navigate(path);
-        } else {
-            onLoginClick(path);
-        }
-    };
 
     return (
         <div className="container my-5">
@@ -31,13 +19,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onLoginClick }) => {
                     </p>
                     <div className="mt-4">
                         <button
-                            onClick={() => handleProtectedNavigation('/dashboard')}
+                            onClick={() => onLoginClick('/dashboard')}
                             className="btn btn-primary btn-lg me-3"
                         >
                             View Resources
                         </button>
                         <button
-                            onClick={() => handleProtectedNavigation('/dashboard')}
+                            onClick={() => onLoginClick('/dashboard')}
                             className="btn btn-outline-primary btn-lg"
                         >
                             Book Now

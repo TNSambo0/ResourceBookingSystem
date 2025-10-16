@@ -12,6 +12,7 @@ export interface AuthState {
     refreshToken: string | null;
     loading: boolean;
     error: string | null;
+    role: string | null;
 }
 
 export interface LoginResponse {
@@ -62,4 +63,15 @@ export interface ResetPasswordRequest {
 export interface ResetPasswordResponse {
     success: boolean;
     message: string;
+}
+
+export interface JwtPayload {
+    sub?: string;
+    email?: string;
+    role?: string | string[];
+    exp?: number;
+    [key: string]: any;
+}
+export interface JwtPayloadWithRoles {
+    [key: string]: any;
 }

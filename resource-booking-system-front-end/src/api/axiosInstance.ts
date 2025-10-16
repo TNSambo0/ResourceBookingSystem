@@ -4,7 +4,7 @@ import eventBus from '../utils/eventBus';
 
 // Create the instance
 const instance = axios.create({
-    baseURL: 'https://localhost:7028/api',
+    baseURL: 'https://localhost:7078/api',
     withCredentials: true,
     timeout: 15000,
 });
