@@ -27,6 +27,13 @@ namespace ResourceBookingSystem.Infrastructure.Data
                 .WithOne(r => r.Department)
                 .HasForeignKey(r => r.DepartmentId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<AuditLog>(entity =>
+            {
+                entity.ToTable("AuditLogs");
+                entity.Property(a => a.Action).IsRequired().HasMaxLength(100);
+                entity.Property(a => a.Details).HasMaxLength(1000);
+            });
         }
     }
 }

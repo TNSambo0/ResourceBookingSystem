@@ -1,7 +1,7 @@
 ﻿using ResourceBookingSystem.Application.Models;
 using System.Text;
 
-namespace ResourceBookingSystem.Application.EmailTemplates
+namespace ResourceBookingSystem.Application.Services
 {
     public static class EmailTemplateBuilder
     {
